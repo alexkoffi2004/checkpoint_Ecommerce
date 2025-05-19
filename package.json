@@ -1,0 +1,33 @@
+{
+  "name": "mern-ecommerce",
+  "version": "1.0.0",
+  "description": "E-commerce platform built with MERN stack",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "install:all": "npm install && npm run install:backend && npm run install:frontend",
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "setup": "npm run install:all && npm run setup:mongodb",
+    "setup:mongodb": "echo 'Veuillez installer MongoDB depuis https://www.mongodb.com/try/download/community et le démarrer'"
+  },
+  "keywords": [
+    "mern",
+    "ecommerce",
+    "react",
+    "node",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+} 

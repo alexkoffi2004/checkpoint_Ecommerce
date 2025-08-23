@@ -93,7 +93,7 @@ Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou à
 
 # Author
 
-Alex KOffi
+Alex Koffi
 
 ## preview link website
 

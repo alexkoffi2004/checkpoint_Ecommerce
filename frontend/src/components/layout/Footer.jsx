@@ -100,7 +100,7 @@ const Footer = () => {
                                 Email: AJK.market@gmail.com
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                                Téléphone: +225 07 19 95 13 19
+                                Téléphone: +225 07 19 95 13 19 / 05 66 95 38 01
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                                 Adresse: Abidjan, Côte d'Ivoire

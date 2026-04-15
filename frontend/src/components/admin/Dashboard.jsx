@@ -11,10 +11,8 @@ import {
     CardContent,
     List,
     ListItem,
-    ListItemIcon,
     ListItemText,
     Divider,
-    IconButton,
     useTheme,
     useMediaQuery,
     CircularProgress,
@@ -31,8 +29,7 @@ import {
     LocalShipping as ShippingIcon,
     Payment as PaymentIcon,
     Star as StarIcon,
-    TrendingUp as TrendingUpIcon,
-    AttachMoney as MoneyIcon
+    TrendingUp as TrendingUpIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { useProducts } from '../../context/ProductContext';
@@ -41,10 +38,10 @@ const Dashboard = () => {
     console.log('Dashboard - Component mounted');
     const navigate = useNavigate();
     const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    useMediaQuery(theme.breakpoints.down('md'));
     const { user, loading: authLoading } = useAuth();
     const { products, loading: productsLoading } = useProducts();
-    const [error, setError] = useState(null);
+    const [error] = useState(null);
 
     console.log('Dashboard - User:', user);
     console.log('Dashboard - Auth Loading:', authLoading);

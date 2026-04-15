@@ -23,8 +23,11 @@ import AdminOrders from './components/admin/AdminOrders';
 import AdminCustomers from './components/admin/AdminCustomers';
 import AdminCategories from './components/admin/AdminCategories';
 import AdminReviews from './components/admin/AdminReviews';
+import AdminPaymentMethods from './components/admin/AdminPaymentMethods';
 import Checkout from './components/checkout/Checkout';
 import Favorites from './components/Favorites';
+import UserOrders from './components/profile/UserOrders';
+import UserOrderDetail from './components/profile/UserOrderDetail';
 
 // Création du thème
 const theme = createTheme({
@@ -60,11 +63,6 @@ function App() {
                                         {/* Routes publiques sans layout */}
                                         <Route path="/login" element={<Login />} />
                                         <Route path="/register" element={<Register />} />
-                                        <Route path="/profile" element={
-                                            <PrivateRoute>
-                                                <Profile />
-                                            </PrivateRoute>
-                                        } />
 
                                         {/* Routes admin */}
                                         <Route path="/admin" element={
@@ -80,6 +78,7 @@ function App() {
                                             <Route path="customers" element={<AdminCustomers />} />
                                             <Route path="categories" element={<AdminCategories />} />
                                             <Route path="reviews" element={<AdminReviews />} />
+                                            <Route path="payments" element={<AdminPaymentMethods />} />
                                         </Route>
 
                                         {/* Routes publiques avec layout */}
@@ -90,6 +89,21 @@ function App() {
                                             <Route path="/cart" element={<Cart />} />
                                             <Route path="/checkout" element={<Checkout />} />
                                             <Route path="/favorites" element={<Favorites />} />
+                                            <Route path="/profile" element={
+                                                <PrivateRoute>
+                                                    <Profile />
+                                                </PrivateRoute>
+                                            } />
+                                            <Route path="/orders" element={
+                                                <PrivateRoute>
+                                                    <UserOrders />
+                                                </PrivateRoute>
+                                            } />
+                                            <Route path="/orders/:id" element={
+                                                <PrivateRoute>
+                                                    <UserOrderDetail />
+                                                </PrivateRoute>
+                                            } />
                                         </Route>
                                     </Routes>
                                 </div>

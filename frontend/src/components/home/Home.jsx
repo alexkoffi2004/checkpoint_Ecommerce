@@ -10,12 +10,10 @@ import {
     CardContent,
     CardMedia,
     Paper,
-    useTheme,
     Stack,
 } from '@mui/material';
 import {
     ShoppingCart as ShoppingCartIcon,
-    LocalShipping as LocalShippingIcon,
     Security as SecurityIcon,
     Support as SupportIcon,
     TrendingUp as TrendingUpIcon,
@@ -281,14 +279,14 @@ const Home = () => {
                             </Typography>
                             <Typography variant="body1" paragraph>
                                 Nous nous engageons à livrer vos commandes dans les plus brefs délais.
-                                La livraison est gratuite pour toute commande supérieure à 50€.
+                                La livraison est gratuite pour toute commande supérieure à 15 000 FCFA.
                             </Typography>
                             <Typography variant="h6" gutterBottom>
                                 Satisfaction Client
                             </Typography>
                             <Typography variant="body1" paragraph>
                                 Votre satisfaction est notre priorité. Nous offrons une garantie de remboursement
-                                de 30 jours sur tous nos produits.
+                                de 15 jours sur tous nos produits.
                             </Typography>
                         </Paper>
                     </Grid>

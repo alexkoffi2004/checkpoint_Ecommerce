@@ -13,6 +13,7 @@ const categoryRoutes = require('./routes/categories');
 const userRoutes = require('./routes/user');
 const reviewRoutes = require('./routes/reviews');
 const favoriteRoutes = require('./routes/favorites');
+const paymentMethodRoutes = require('./routes/paymentMethods');
 
 const app = express();
 
@@ -86,6 +87,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/favorites', favoriteRoutes);
+app.use('/api/payment-methods', paymentMethodRoutes);
 
 // Gestion des erreurs 404
 app.use((req, res, next) => {

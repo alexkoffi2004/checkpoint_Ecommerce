@@ -8,6 +8,7 @@ const Favorites = () => {
     const { favorites, loading, error, removeFromFavorites, loadFavorites } = useFavorites();
     const { addToCart } = useCart();
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         loadFavorites();
     }, []);

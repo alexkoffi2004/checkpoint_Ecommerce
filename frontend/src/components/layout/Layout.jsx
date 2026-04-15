@@ -25,6 +25,7 @@ import {
     Menu as MenuIcon,
     Home as HomeIcon,
     ShoppingCart as ShoppingCartIcon,
+    ShoppingBag as ShoppingBagIcon,
     Store as StoreIcon,
     Person as PersonIcon,
     ExitToApp as LogoutIcon,
@@ -72,6 +73,10 @@ const Layout = () => {
         { text: 'Favoris', icon: <FavoriteIcon />, path: '/favorites' },
         { text: 'Panier', icon: <ShoppingCartIcon />, path: '/cart' },
     ];
+
+    if (user) {
+        menuItems.push({ text: 'Commandes', icon: <ShoppingBagIcon />, path: '/orders' });
+    }
 
     const drawer = (
         <Box sx={{ overflow: 'auto' }}>

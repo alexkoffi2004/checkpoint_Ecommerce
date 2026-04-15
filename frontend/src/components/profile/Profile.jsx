@@ -11,42 +11,29 @@ import {
     Alert,
     Snackbar,
     CircularProgress,
-    Tabs,
-    Tab,
     List,
     ListItem,
     ListItemText,
     ListItemIcon,
-    Chip,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
 } from '@mui/material';
 import {
     Person as PersonIcon,
     Email as EmailIcon,
     Phone as PhoneIcon,
     LocationOn as LocationIcon,
-    ShoppingBag as OrderIcon,
     Edit as EditIcon,
     Save as SaveIcon,
     Cancel as CancelIcon,
     ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
-import axiosInstance from '../../config/axios';
 import { useNavigate } from 'react-router-dom';
 
 const Profile = () => {
     const { user, updateUser } = useAuth();
-    const [activeTab, setActiveTab] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
-    const [orders, setOrders] = useState([]);
-    const [loadingOrders, setLoadingOrders] = useState(false);
-    const [errorOrders, setErrorOrders] = useState(null);
     const [editMode, setEditMode] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
@@ -59,10 +46,7 @@ const Profile = () => {
             country: ''
         }
     });
-    const [updatingStatus, setUpdatingStatus] = useState(false);
-    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-    const [selectedOrder, setSelectedOrder] = useState(null);
-    const [confirmationNotes, setConfirmationNotes] = useState('');
+
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -78,23 +62,8 @@ const Profile = () => {
                     country: ''
                 }
             });
-            loadOrders();
         }
     }, [user]);
-
-    const loadOrders = async () => {
-        try {
-            setLoadingOrders(true);
-            setErrorOrders(null);
-            const response = await axiosInstance.get('/orders/user/me');
-            setOrders(response.data.orders || []);
-        } catch (err) {
-            console.error('Erreur lors du chargement des commandes:', err);
-            setErrorOrders(err.response?.data?.message || 'Erreur lors du chargement des commandes');
-        } finally {
-            setLoadingOrders(false);
-        }
-    };
 
     const handleEditClick = () => {
         setEditMode(true);
@@ -149,156 +118,8 @@ const Profile = () => {
         }
     };
 
-    const handleTabChange = (event, newValue) => {
-        setActiveTab(newValue);
-    };
-
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('fr-FR', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-    };
-
-    const getOrderStatusColor = (status) => {
-        const colors = {
-            'pending': 'warning',
-            'processing': 'info',
-            'shipped': 'primary',
-            'delivered': 'success',
-            'cancelled': 'error'
-        };
-        return colors[status] || 'default';
-    };
-
-    const handleUpdateOrderStatus = async (orderId, newStatus) => {
-        try {
-            setUpdatingStatus(true);
-            const res = await axiosInstance.put(`/orders/${orderId}/status`, { status: newStatus });
-            setOrders(orders.map(order => 
-                order._id === orderId ? res.data.order : order
-            ));
-            setSuccess('Statut de la commande mis à jour avec succès');
-        } catch (err) {
-            setError(err.response?.data?.message || 'Erreur lors de la mise à jour du statut');
-        } finally {
-            setUpdatingStatus(false);
-        }
-    };
-
-    const handleConfirmDelivery = async () => {
-        try {
-            setUpdatingStatus(true);
-            const res = await axiosInstance.put(`/orders/${selectedOrder._id}/status`, {
-                status: 'delivered',
-                deliveryConfirmation: {
-                    notes: confirmationNotes
-                }
-            });
-            setOrders(orders.map(order => 
-                order._id === selectedOrder._id ? res.data.order : order
-            ));
-            setSuccess('Confirmation de réception enregistrée avec succès');
-            setConfirmDialogOpen(false);
-            setSelectedOrder(null);
-            setConfirmationNotes('');
-        } catch (err) {
-            setError(err.response?.data?.message || 'Erreur lors de la confirmation de réception');
-        } finally {
-            setUpdatingStatus(false);
-        }
-    };
-
-    const openConfirmDialog = (order) => {
-        setSelectedOrder(order);
-        setConfirmDialogOpen(true);
-    };
-
-    const renderOrders = () => {
-        if (loadingOrders) {
-            return (
-                <Box display="flex" justifyContent="center" p={3}>
-                    <CircularProgress />
-                </Box>
-            );
-        }
-
-        if (errorOrders) {
-            return (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                    {errorOrders}
-                </Alert>
-            );
-        }
-
-        if (!orders || orders.length === 0) {
-            return (
-                <Box p={3} textAlign="center">
-                    <Typography variant="body1" color="textSecondary">
-                        Vous n'avez pas encore de commandes
-                    </Typography>
-                </Box>
-            );
-        }
-
-        return (
-            <List>
-                {orders.map((order) => (
-                    <Paper key={order._id} sx={{ mb: 2, p: 2 }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                            <Typography variant="h6">
-                                Commande #{order._id.slice(-6)}
-                            </Typography>
-                            <Chip
-                                label={order.status}
-                                color={getOrderStatusColor(order.status)}
-                                size="small"
-                            />
-                        </Box>
-                        <List>
-                            {order.items.map((item, index) => (
-                                <ListItem key={index}>
-                                    <ListItemText
-                                        primary={item.name}
-                                        secondary={`Quantité: ${item.quantity}`}
-                                    />
-                                    <Typography>
-                                        {(item.price * item.quantity).toLocaleString()} FCFA
-                                    </Typography>
-                                </ListItem>
-                            ))}
-                        </List>
-                        <Divider sx={{ my: 2 }} />
-                        <Box display="flex" justifyContent="space-between" alignItems="center">
-                            <Typography variant="subtitle1">
-                                Total: {order.totalAmount?.toLocaleString() || '0'} FCFA
-                            </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                                {formatDate(order.createdAt)}
-                            </Typography>
-                        </Box>
-                        {order.status === 'shipped' && (
-                            <Box mt={2} display="flex" justifyContent="flex-end">
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={() => openConfirmDialog(order)}
-                                    disabled={updatingStatus}
-                                >
-                                    Confirmer la réception
-                                </Button>
-                            </Box>
-                        )}
-                    </Paper>
-                ))}
-            </List>
-        );
-    };
-
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-            {/* Bouton de retour */}
             <Box sx={{ mb: 3 }}>
                 <Button
                     startIcon={<ArrowBackIcon />}
@@ -309,18 +130,19 @@ const Profile = () => {
                 </Button>
             </Box>
 
-            <Grid container spacing={3}>
-                {/* Informations du profil */}
-                <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 3 }}>
+            <Grid container spacing={3} justifyContent="center">
+                <Grid item xs={12} md={8}>
+                    <Paper sx={{ p: 4, borderRadius: 3, boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h5" component="h1">
+                            <Typography variant="h5" component="h1" fontWeight="bold">
                                 Mon Profil
                             </Typography>
                             {!editMode ? (
                                 <Button
                                     startIcon={<EditIcon />}
                                     onClick={handleEditClick}
+                                    variant="outlined"
+                                    sx={{ borderRadius: 2 }}
                                 >
                                     Modifier
                                 </Button>
@@ -329,7 +151,8 @@ const Profile = () => {
                                     <Button
                                         startIcon={<CancelIcon />}
                                         onClick={handleCancelEdit}
-                                        sx={{ mr: 1 }}
+                                        sx={{ mr: 1, borderRadius: 2 }}
+                                        color="inherit"
                                     >
                                         Annuler
                                     </Button>
@@ -338,40 +161,42 @@ const Profile = () => {
                                         startIcon={<SaveIcon />}
                                         onClick={handleSubmit}
                                         disabled={loading}
+                                        sx={{ borderRadius: 2 }}
                                     >
                                         Enregistrer
                                     </Button>
                                 </Box>
                             )}
                         </Box>
-                        <Divider sx={{ mb: 3 }} />
+                        <Divider sx={{ mb: 4 }} />
 
                         {error && (
-                            <Alert severity="error" sx={{ mb: 2 }}>
+                            <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
                                 {error}
                             </Alert>
                         )}
 
                         {success && (
-                            <Alert severity="success" sx={{ mb: 2 }}>
+                            <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>
                                 {success}
                             </Alert>
                         )}
 
                         {editMode ? (
                             <form onSubmit={handleSubmit}>
-                                <Grid container spacing={2}>
-                                    <Grid item xs={12}>
+                                <Grid container spacing={3}>
+                                    <Grid item xs={12} sm={6}>
                                         <TextField
                                             fullWidth
-                                            label="Nom"
+                                            label="Nom complet"
                                             name="name"
                                             value={formData.name}
                                             onChange={handleInputChange}
                                             required
+                                            variant="outlined"
                                         />
                                     </Grid>
-                                    <Grid item xs={12}>
+                                    <Grid item xs={12} sm={6}>
                                         <TextField
                                             fullWidth
                                             label="Email"
@@ -380,6 +205,7 @@ const Profile = () => {
                                             value={formData.email}
                                             onChange={handleInputChange}
                                             required
+                                            variant="outlined"
                                         />
                                     </Grid>
                                     <Grid item xs={12}>
@@ -389,11 +215,12 @@ const Profile = () => {
                                             name="phone"
                                             value={formData.phone}
                                             onChange={handleInputChange}
+                                            variant="outlined"
                                         />
                                     </Grid>
                                     <Grid item xs={12}>
-                                        <Typography variant="subtitle1" gutterBottom>
-                                            Adresse
+                                        <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
+                                            Adresse de livraison
                                         </Typography>
                                     </Grid>
                                     <Grid item xs={12}>
@@ -403,6 +230,7 @@ const Profile = () => {
                                             name="address.street"
                                             value={formData.address.street}
                                             onChange={handleInputChange}
+                                            variant="outlined"
                                         />
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
@@ -412,6 +240,7 @@ const Profile = () => {
                                             name="address.city"
                                             value={formData.address.city}
                                             onChange={handleInputChange}
+                                            variant="outlined"
                                         />
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
@@ -421,6 +250,7 @@ const Profile = () => {
                                             name="address.postalCode"
                                             value={formData.address.postalCode}
                                             onChange={handleInputChange}
+                                            variant="outlined"
                                         />
                                     </Grid>
                                     <Grid item xs={12}>
@@ -430,173 +260,74 @@ const Profile = () => {
                                             name="address.country"
                                             value={formData.address.country}
                                             onChange={handleInputChange}
+                                            variant="outlined"
                                         />
                                     </Grid>
                                 </Grid>
                             </form>
                         ) : (
-                            <List>
-                                <ListItem>
+                            <List sx={{ pt: 0 }}>
+                                <ListItem sx={{ px: 0, py: 1.5 }}>
                                     <ListItemIcon>
-                                        <PersonIcon />
+                                        <PersonIcon color="primary" />
                                     </ListItemIcon>
                                     <ListItemText
-                                        primary="Nom"
-                                        secondary={user.name}
+                                        primary={<Typography variant="caption" color="text.secondary">Nom complet</Typography>}
+                                        secondary={<Typography variant="body1" fontWeight="medium" color="text.primary">{user.name}</Typography>}
                                     />
                                 </ListItem>
-                                <ListItem>
+                                <Divider component="li" />
+                                <ListItem sx={{ px: 0, py: 1.5 }}>
                                     <ListItemIcon>
-                                        <EmailIcon />
+                                        <EmailIcon color="primary" />
                                     </ListItemIcon>
                                     <ListItemText
-                                        primary="Email"
-                                        secondary={user.email}
+                                        primary={<Typography variant="caption" color="text.secondary">Adresse email</Typography>}
+                                        secondary={<Typography variant="body1" fontWeight="medium" color="text.primary">{user.email}</Typography>}
                                     />
                                 </ListItem>
-                                {user.phone && (
-                                    <ListItem>
-                                        <ListItemIcon>
-                                            <PhoneIcon />
-                                        </ListItemIcon>
-                                        <ListItemText
-                                            primary="Téléphone"
-                                            secondary={user.phone}
-                                        />
-                                    </ListItem>
-                                )}
-                                {user.address && (
-                                    <>
-                                        <ListItem>
-                                            <ListItemIcon>
-                                                <LocationIcon />
-                                            </ListItemIcon>
-                                            <ListItemText
-                                                primary="Adresse"
-                                                secondary={
+                                <Divider component="li" />
+                                <ListItem sx={{ px: 0, py: 1.5 }}>
+                                    <ListItemIcon>
+                                        <PhoneIcon color="primary" />
+                                    </ListItemIcon>
+                                    <ListItemText
+                                        primary={<Typography variant="caption" color="text.secondary">Téléphone</Typography>}
+                                        secondary={<Typography variant="body1" fontWeight="medium" color="text.primary">{user.phone || 'Non renseigné'}</Typography>}
+                                    />
+                                </ListItem>
+                                <Divider component="li" />
+                                <ListItem sx={{ px: 0, py: 1.5 }}>
+                                    <ListItemIcon>
+                                        <LocationIcon color="primary" />
+                                    </ListItemIcon>
+                                    <ListItemText
+                                        primary={<Typography variant="caption" color="text.secondary">Adresse postale</Typography>}
+                                        secondary={
+                                            <Typography variant="body1" fontWeight="medium" color="text.primary">
+                                                {user.address && (user.address.street || user.address.city || user.address.postalCode || user.address.country) ? (
                                                     <>
                                                         {user.address.street && <>{user.address.street}<br /></>}
                                                         {user.address.city && <>{user.address.city}, </>}
                                                         {user.address.postalCode && <>{user.address.postalCode}<br /></>}
                                                         {user.address.country && user.address.country}
                                                     </>
-                                                }
-                                            />
-                                        </ListItem>
-                                    </>
-                                )}
+                                                ) : 'Non renseignée'}
+                                            </Typography>
+                                        }
+                                    />
+                                </ListItem>
                             </List>
-                        )}
-                    </Paper>
-                </Grid>
-
-                {/* Commandes */}
-                <Grid item xs={12} md={8}>
-                    <Paper sx={{ p: 3 }}>
-                        <Tabs
-                            value={activeTab}
-                            onChange={handleTabChange}
-                            sx={{ mb: 3 }}
-                        >
-                            <Tab icon={<OrderIcon />} label="Mes Commandes" />
-                        </Tabs>
-
-                        {activeTab === 0 && (
-                            <>
-                                {renderOrders()}
-                            </>
                         )}
                     </Paper>
                 </Grid>
             </Grid>
 
-            <Box sx={{ mt: 4 }}>
-                <Typography variant="h5" gutterBottom>Mes commandes récentes</Typography>
-                {loadingOrders ? <CircularProgress /> : errorOrders ? <Alert severity="error">{errorOrders}</Alert> : (orders.length === 0 ? <Alert severity="info">Aucune commande récente.</Alert> : (orders.map((order) => (
-                    <Paper key={order._id} sx={{ p: 2, mb: 2 }}>
-                        <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={12} sm={6}>
-                                <Typography variant="subtitle1">Commande #{order._id.slice(-6)}</Typography>
-                                <Typography variant="body2">Passée le {formatDate(order.createdAt)}</Typography>
-                                <Typography variant="body2">Total : {order.totalAmount?.toLocaleString() || '0'} FCFA</Typography>
-                                <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                    <Chip
-                                        label={order.status}
-                                        color={getOrderStatusColor(order.status)}
-                                        size="small"
-                                    />
-                                    {order.adminUpdatedAt && (
-                                        <Chip
-                                            label={`Mise à jour le ${formatDate(order.adminUpdatedAt)}`}
-                                            variant="outlined"
-                                            size="small"
-                                        />
-                                    )}
-                                    {order.deliveryConfirmation?.confirmed && (
-                                        <Chip
-                                            label={`Reçue le ${formatDate(order.deliveryConfirmation.confirmedAt)}`}
-                                            color="success"
-                                            variant="outlined"
-                                            size="small"
-                                        />
-                                    )}
-                                </Box>
-                                {order.deliveryConfirmation?.notes && (
-                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                        Note: {order.deliveryConfirmation.notes}
-                                    </Typography>
-                                )}
-                            </Grid>
-                            <Grid item xs={12} sm={6} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
-                                {order.status === 'shipped' && !order.deliveryConfirmation?.confirmed && (
-                                    <Button
-                                        variant="contained"
-                                        color="success"
-                                        onClick={() => openConfirmDialog(order)}
-                                        disabled={updatingStatus}
-                                        sx={{ mr: 1 }}
-                                    >
-                                        Confirmer la réception
-                                    </Button>
-                                )}
-                                <Button variant="outlined" onClick={() => navigate(`/profile/orders/${order._id}`)}>
-                                    Voir le détail
-                                </Button>
-                            </Grid>
-                        </Grid>
-                    </Paper>
-                ))))}
-            </Box>
-
-            {/* Dialog de confirmation de réception */}
-            <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
-                <DialogTitle>Confirmer la réception</DialogTitle>
-                <DialogContent>
-                    <Typography variant="body1" gutterBottom>
-                        Confirmez-vous avoir bien reçu votre commande #{selectedOrder?._id.slice(-6)} ?
-                    </Typography>
-                    <TextField
-                        fullWidth
-                        multiline
-                        rows={4}
-                        label="Notes (optionnel)"
-                        value={confirmationNotes}
-                        onChange={(e) => setConfirmationNotes(e.target.value)}
-                        sx={{ mt: 2 }}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setConfirmDialogOpen(false)}>Annuler</Button>
-                    <Button
-                        onClick={handleConfirmDelivery}
-                        variant="contained"
-                        color="primary"
-                        disabled={updatingStatus}
-                    >
-                        Confirmer
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            {loading && (
+                <Box display="flex" justifyContent="center" mt={3}>
+                    <CircularProgress />
+                </Box>
+            )}
 
             <Snackbar
                 open={!!error}
@@ -621,4 +352,4 @@ const Profile = () => {
     );
 };
 
-export default Profile; 
+export default Profile;

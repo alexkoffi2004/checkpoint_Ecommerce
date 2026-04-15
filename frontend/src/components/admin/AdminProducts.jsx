@@ -30,7 +30,7 @@ import {
     Switch,
     CircularProgress
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import axiosInstance from '../../config/axios';
 
 const AdminProducts = () => {
@@ -59,6 +59,7 @@ const AdminProducts = () => {
         isActive: ''
     });
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         loadProducts();
     }, [page, filters]);

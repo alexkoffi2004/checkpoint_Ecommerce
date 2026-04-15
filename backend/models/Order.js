@@ -15,14 +15,21 @@ const orderSchema = new mongoose.Schema({
     name: { type: String, required: true },
     phone: { type: String, required: true },
     email: { type: String, required: true },
-    address: { type: String, required: true },
-    city: { type: String, required: true },
-    deliveryInstructions: { type: String }
+    address: { type: String }, // Optional now
+    city: { type: String }, // Optional now
+    deliveryInstructions: { type: String },
+    locationLink: { type: String },
+    locationMethod: { type: String, enum: ['gps', 'manual', 'mixed'], default: 'manual' }
   },
   paymentMethod: { 
     type: String, 
+    required: true
+  },
+  paymentType: {
+    type: String,
+    enum: ['delivery', 'advance'],
     required: true,
-    enum: ['orange', 'moov', 'mtn', 'wave']
+    default: 'advance'
   },
   trackingNumber: { type: String },
   notes: { type: String },

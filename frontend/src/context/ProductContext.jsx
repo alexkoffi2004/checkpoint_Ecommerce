@@ -95,6 +95,7 @@ export const ProductProvider = ({ children }) => {
     };
 
     // Effet pour charger les produits lorsque les filtres ou la page changent
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         loadProducts();
     }, [filters, page]);

@@ -65,6 +65,7 @@ export const FavoriteProvider = ({ children }) => {
         return Array.isArray(favorites) && favorites.some(product => product._id === productId);
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (user) {
             loadFavorites();

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Container,
     Grid,
@@ -12,7 +12,15 @@ import {
     ListItemText,
     Divider,
     Box,
-    Alert
+    Alert,
+    Radio,
+    RadioGroup,
+    FormControlLabel,
+    FormControl,
+    FormLabel,
+    Avatar,
+    IconButton,
+    InputAdornment
 } from '@mui/material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -20,8 +28,17 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../config/axios';
+import { 
+    Payment as PaymentIcon, 
+    LocalShipping as LocalShippingIcon,
+    GpsFixed as GpsFixedIcon,
+    LocationCity as LocationCityIcon,
+    Map as MapIcon,
+    CheckCircle as CheckCircleIcon,
+    ErrorOutline as ErrorOutlineIcon
+} from '@mui/icons-material';
 
-const validationSchema = Yup.object({
+const validationSchema = Yup.object().shape({
     name: Yup.string().required('Le nom est requis'),
     phone: Yup.string()
         .required('Le numéro de téléphone est requis')
@@ -29,9 +46,24 @@ const validationSchema = Yup.object({
     email: Yup.string()
         .email('Email invalide')
         .required('L\'email est requis'),
-    address: Yup.string().required('L\'adresse est requise'),
-    city: Yup.string().required('La ville est requise'),
-    deliveryInstructions: Yup.string(),
+    locationMethod: Yup.string().required('Veuillez choisir une méthode de livraison'),
+    locationLink: Yup.string().when('locationMethod', {
+        is: 'gps',
+        then: () => Yup.string().required('Veuillez vous localiser via le bouton GPS').url('Lien invalide'),
+        otherwise: () => Yup.string().nullable()
+    }),
+    address: Yup.string().when('locationMethod', {
+        is: 'manual',
+        then: () => Yup.string().required('L\'adresse est requise'),
+        otherwise: () => Yup.string().nullable()
+    }),
+    city: Yup.string().when('locationMethod', {
+        is: 'manual',
+        then: () => Yup.string().required('La ville est requise'),
+        otherwise: () => Yup.string().nullable()
+    }),
+    deliveryInstructions: Yup.string().nullable(),
+    paymentType: Yup.string().required('Veuillez choisir le moment de paiement'),
     paymentMethod: Yup.string().required('Le moyen de paiement est requis')
 });
 
@@ -41,15 +73,38 @@ const Checkout = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [paymentMethods, setPaymentMethods] = useState([]);
+    const [fetchingMethods, setFetchingMethods] = useState(true);
+    
+    // GPS State
+    const [gettingLocation, setGettingLocation] = useState(false);
+    const [locationError, setLocationError] = useState(null);
+
+    useEffect(() => {
+        const fetchMethods = async () => {
+            try {
+                const res = await axiosInstance.get('/payment-methods/active');
+                setPaymentMethods(res.data.data || []);
+            } catch (err) {
+                console.error('Erreur lors du chargement des moyens de paiement', err);
+            } finally {
+                setFetchingMethods(false);
+            }
+        };
+        fetchMethods();
+    }, []);
 
     const formik = useFormik({
         initialValues: {
             name: '',
             phone: '',
             email: auth.user?.email || '',
+            locationMethod: 'gps', // 'gps' or 'manual'
+            locationLink: '',
             address: '',
             city: '',
             deliveryInstructions: '',
+            paymentType: 'delivery',
             paymentMethod: ''
         },
         validationSchema,
@@ -58,16 +113,18 @@ const Checkout = () => {
                 setLoading(true);
                 setError(null);
 
-                // Préparation des données de la commande
                 const orderData = {
                     shippingAddress: {
                         name: values.name,
                         phone: values.phone,
                         email: values.email,
+                        locationMethod: values.locationMethod,
+                        locationLink: values.locationLink,
                         address: values.address,
                         city: values.city,
                         deliveryInstructions: values.deliveryInstructions
                     },
+                    paymentType: values.paymentType,
                     paymentMethod: values.paymentMethod,
                     items: cart.cart.items.map(item => ({
                         product: item.product._id,
@@ -79,22 +136,14 @@ const Checkout = () => {
                     totalAmount: cart.cart.totalPrice
                 };
 
-                console.log('Données de la commande à envoyer:', orderData);
-
-                // Appel API pour créer la commande
                 const response = await axiosInstance.post('/orders', orderData);
 
-                console.log('Réponse du serveur:', response.data);
-
                 if (response.data.success) {
-                    // Vider le panier après la commande réussie
                     await cart.clearCart();
-                    // Redirection vers la page d'accueil
-                    navigate('/profile', { 
+                    navigate('/orders', { 
                         state: { 
-                            orderId: response.data.data._id,
-                            orderDetails: response.data.data,
-                            showSuccess: true
+                            showSuccess: true,
+                            orderId: response.data.data._id
                         }
                     });
                 } else {
@@ -109,8 +158,33 @@ const Checkout = () => {
         }
     });
 
-    // Vérifier si le panier est en cours de chargement
-    if (cart.loading) {
+    const handleGetLocation = () => {
+        setGettingLocation(true);
+        setLocationError(null);
+
+        if (!navigator.geolocation) {
+            setLocationError("La géolocalisation n'est pas supportée par votre navigateur.");
+            setGettingLocation(false);
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                const link = `https://maps.google.com/?q=${latitude},${longitude}`;
+                formik.setFieldValue('locationLink', link);
+                setGettingLocation(false);
+            },
+            (error) => {
+                console.error(error);
+                setLocationError("Impossible d'obtenir votre position. Veuillez autoriser l'accès ou utiliser la saisie manuelle.");
+                setGettingLocation(false);
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+    };
+
+    if (cart.loading || fetchingMethods) {
         return (
             <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
                 <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -120,54 +194,36 @@ const Checkout = () => {
         );
     }
 
-    // Vérifier s'il y a une erreur de chargement du panier
-    if (cart.error) {
-        return (
-            <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-                <Alert severity="error" sx={{ mb: 2 }}>
-                    {cart.error}
-                </Alert>
-            </Container>
-        );
-    }
-
-    // Vérifier si l'utilisateur est connecté
     if (!auth.user) {
         return (
             <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-                <Alert severity="warning">
-                    Vous devez être connecté pour passer une commande.
-                </Alert>
+                <Alert severity="warning">Vous devez être connecté pour passer une commande.</Alert>
             </Container>
         );
     }
 
-    // Vérifier si le panier existe et contient des articles
-    if (!cart.cart || !cart.cart.items || cart.cart.items.length === 0) {
-        return (
-            <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-                <Alert severity="info">
-                    Votre panier est vide. Continuez vos achats pour passer une commande.
-                </Alert>
-            </Container>
-        );
-    }
+    const { values, touched, errors, handleChange, setFieldValue } = formik;
 
     return (
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
+            <Typography variant="h4" fontWeight="800" mb={4} textAlign="center">
+                Finaliser ma commande
+            </Typography>
             <Grid container spacing={4}>
                 {/* Formulaire de commande */}
                 <Grid item xs={12} md={8}>
-                    <Paper sx={{ p: 3 }}>
-                        <Typography variant="h5" gutterBottom>
-                            Informations de livraison
-                        </Typography>
+                    <Paper sx={{ p: 4, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
                         {error && (
-                            <Alert severity="error" sx={{ mb: 2 }}>
+                            <Alert severity="error" sx={{ mb: 3 }}>
                                 {error}
                             </Alert>
                         )}
                         <form onSubmit={formik.handleSubmit}>
+                            <Typography variant="h6" fontWeight="700" gutterBottom>
+                                1. Vos coordonnées
+                            </Typography>
+                            <Divider sx={{ mb: 3 }} />
+                            
                             <Grid container spacing={3}>
                                 <Grid item xs={12}>
                                     <TextField
@@ -175,10 +231,10 @@ const Checkout = () => {
                                         id="name"
                                         name="name"
                                         label="Nom complet"
-                                        value={formik.values.name}
-                                        onChange={formik.handleChange}
-                                        error={formik.touched.name && Boolean(formik.errors.name)}
-                                        helperText={formik.touched.name && formik.errors.name}
+                                        value={values.name}
+                                        onChange={handleChange}
+                                        error={touched.name && Boolean(errors.name)}
+                                        helperText={touched.name && errors.name}
                                     />
                                 </Grid>
 
@@ -187,11 +243,11 @@ const Checkout = () => {
                                         fullWidth
                                         id="phone"
                                         name="phone"
-                                        label="Numéro de téléphone"
-                                        value={formik.values.phone}
-                                        onChange={formik.handleChange}
-                                        error={formik.touched.phone && Boolean(formik.errors.phone)}
-                                        helperText={formik.touched.phone && formik.errors.phone}
+                                        label="Numéro de téléphone (WhatsApp si possible)"
+                                        value={values.phone}
+                                        onChange={handleChange}
+                                        error={touched.phone && Boolean(errors.phone)}
+                                        helperText={touched.phone && errors.phone}
                                     />
                                 </Grid>
 
@@ -202,146 +258,259 @@ const Checkout = () => {
                                         name="email"
                                         label="Email"
                                         type="email"
-                                        value={formik.values.email}
-                                        onChange={formik.handleChange}
-                                        error={formik.touched.email && Boolean(formik.errors.email)}
-                                        helperText={formik.touched.email && formik.errors.email}
+                                        value={values.email}
+                                        onChange={handleChange}
+                                        error={touched.email && Boolean(errors.email)}
+                                        helperText={touched.email && errors.email}
                                     />
                                 </Grid>
+                            </Grid>
 
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        id="address"
-                                        name="address"
-                                        label="Adresse"
-                                        value={formik.values.address}
-                                        onChange={formik.handleChange}
-                                        error={formik.touched.address && Boolean(formik.errors.address)}
-                                        helperText={formik.touched.address && formik.errors.address}
-                                    />
-                                </Grid>
+                            <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 4 }}>
+                                2. Lieu de livraison
+                            </Typography>
+                            <Divider sx={{ mb: 3 }} />
 
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        id="city"
-                                        name="city"
-                                        label="Ville"
-                                        value={formik.values.city}
-                                        onChange={formik.handleChange}
-                                        error={formik.touched.city && Boolean(formik.errors.city)}
-                                        helperText={formik.touched.city && formik.errors.city}
-                                    />
-                                </Grid>
+                            <FormControl component="fieldset" fullWidth sx={{ mb: 3 }}>
+                                <RadioGroup
+                                    row
+                                    name="locationMethod"
+                                    value={values.locationMethod}
+                                    onChange={(e) => {
+                                        handleChange(e);
+                                    }}
+                                >
+                                    <Paper elevation={0} sx={{ border: values.locationMethod === 'gps' ? '2px solid #1976d2' : '1px solid #e0e0e0', p: 1, mr: 2, mb: { xs: 2, sm: 0 }, borderRadius: 2, flex: 1, display: 'flex', alignItems: 'center' }}>
+                                        <FormControlLabel 
+                                            value="gps" 
+                                            control={<Radio />} 
+                                            label={<Box display="flex" alignItems="center" gap={1}><GpsFixedIcon color={values.locationMethod === 'gps' ? 'primary' : 'action'} /><Typography fontWeight="600">Utiliser ma position actuelle</Typography></Box>} 
+                                            sx={{ m: 0, width: '100%' }}
+                                        />
+                                    </Paper>
+                                    <Paper elevation={0} sx={{ border: values.locationMethod === 'manual' ? '2px solid #1976d2' : '1px solid #e0e0e0', p: 1, borderRadius: 2, flex: 1, display: 'flex', alignItems: 'center' }}>
+                                        <FormControlLabel 
+                                            value="manual" 
+                                            control={<Radio />} 
+                                            label={<Box display="flex" alignItems="center" gap={1}><LocationCityIcon color={values.locationMethod === 'manual' ? 'primary' : 'action'} /><Typography fontWeight="600">Saisir manuellement</Typography></Box>} 
+                                            sx={{ m: 0, width: '100%' }}
+                                        />
+                                    </Paper>
+                                </RadioGroup>
+                            </FormControl>
 
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        id="deliveryInstructions"
-                                        name="deliveryInstructions"
-                                        label="Instructions de livraison (optionnel)"
-                                        multiline
-                                        rows={3}
-                                        value={formik.values.deliveryInstructions}
-                                        onChange={formik.handleChange}
-                                        error={formik.touched.deliveryInstructions && Boolean(formik.errors.deliveryInstructions)}
-                                        helperText={formik.touched.deliveryInstructions && formik.errors.deliveryInstructions}
-                                    />
-                                </Grid>
+                            {/* Section GPS */}
+                            {values.locationMethod === 'gps' && (
+                                <Box sx={{ p: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1', mb: 3, textAlign: 'center' }}>
+                                    {!values.locationLink ? (
+                                        <>
+                                            <Typography variant="body1" mb={2} color="text.secondary">
+                                                Partagez votre position GPS exacte pour guider le livreur jusqu'à vous sans effort.
+                                            </Typography>
+                                            <Button
+                                                variant="contained"
+                                                color="primary"
+                                                size="large"
+                                                onClick={handleGetLocation}
+                                                disabled={gettingLocation}
+                                                startIcon={gettingLocation ? <CircularProgress size={20} color="inherit" /> : <GpsFixedIcon />}
+                                                sx={{ borderRadius: 2, px: 4, py: 1.5, fontWeight: 700 }}
+                                            >
+                                                {gettingLocation ? 'Recherche en cours...' : 'Me localiser maintenant'}
+                                            </Button>
+                                            {locationError && (
+                                                <Alert severity="error" sx={{ mt: 2, textAlign: 'left' }}>
+                                                    {locationError}
+                                                </Alert>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
+                                            <CheckCircleIcon color="success" sx={{ fontSize: 48 }} />
+                                            <Typography variant="h6" color="success.main" fontWeight="700">
+                                                Position enregistrée !
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Le livreur recevra vos coordonnées exactes.
+                                            </Typography>
+                                            <Button size="small" onClick={() => setFieldValue('locationLink', '')} sx={{ mt: 1 }}>
+                                                Re-localiser
+                                            </Button>
+                                        </Box>
+                                    )}
+                                    {touched.locationLink && errors.locationLink && !values.locationLink && (
+                                        <Typography color="error" variant="caption" sx={{ mt: 2, display: 'block' }}>
+                                            {errors.locationLink}
+                                        </Typography>
+                                    )}
+                                </Box>
+                            )}
 
-                                <Grid item xs={12}>
-                                    <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                                        Moyen de paiement
-                                    </Typography>
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={12} sm={6}>
-                                            <Paper
-                                                elevation={formik.values.paymentMethod === 'orange' ? 3 : 1}
-                                                sx={{
-                                                    p: 2,
-                                                    cursor: 'pointer',
-                                                    border: formik.values.paymentMethod === 'orange' ? '2px solid #1976d2' : '1px solid #ddd',
-                                                    '&:hover': { borderColor: 'primary.main' }
-                                                }}
-                                                onClick={() => formik.setFieldValue('paymentMethod', 'orange')}
-                                            >
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                    <img src="/images/orange-money.png" alt="Orange Money" style={{ height: 40 }} />
-                                                    <Typography>Orange Money</Typography>
-                                                </Box>
-                                            </Paper>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Paper
-                                                elevation={formik.values.paymentMethod === 'moov' ? 3 : 1}
-                                                sx={{
-                                                    p: 2,
-                                                    cursor: 'pointer',
-                                                    border: formik.values.paymentMethod === 'moov' ? '2px solid #1976d2' : '1px solid #ddd',
-                                                    '&:hover': { borderColor: 'primary.main' }
-                                                }}
-                                                onClick={() => formik.setFieldValue('paymentMethod', 'moov')}
-                                            >
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                    <img src="/images/moov-money.png" alt="Moov Money" style={{ height: 40 }} />
-                                                    <Typography>Moov Money</Typography>
-                                                </Box>
-                                            </Paper>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Paper
-                                                elevation={formik.values.paymentMethod === 'mtn' ? 3 : 1}
-                                                sx={{
-                                                    p: 2,
-                                                    cursor: 'pointer',
-                                                    border: formik.values.paymentMethod === 'mtn' ? '2px solid #1976d2' : '1px solid #ddd',
-                                                    '&:hover': { borderColor: 'primary.main' }
-                                                }}
-                                                onClick={() => formik.setFieldValue('paymentMethod', 'mtn')}
-                                            >
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                    <img src="/images/mtn-money.png" alt="MTN Mobile Money" style={{ height: 40 }} />
-                                                    <Typography>MTN Mobile Money</Typography>
-                                                </Box>
-                                            </Paper>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Paper
-                                                elevation={formik.values.paymentMethod === 'wave' ? 3 : 1}
-                                                sx={{
-                                                    p: 2,
-                                                    cursor: 'pointer',
-                                                    border: formik.values.paymentMethod === 'wave' ? '2px solid #1976d2' : '1px solid #ddd',
-                                                    '&:hover': { borderColor: 'primary.main' }
-                                                }}
-                                                onClick={() => formik.setFieldValue('paymentMethod', 'wave')}
-                                            >
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                    <img src="/images/wave.png" alt="Wave" style={{ height: 40 }} />
-                                                    <Typography>Wave</Typography>
-                                                </Box>
-                                            </Paper>
-                                        </Grid>
+                            {/* Section Manuelle */}
+                            {values.locationMethod === 'manual' && (
+                                <Grid container spacing={3} sx={{ mb: 3 }}>
+                                    <Grid item xs={12}>
+                                        <Alert severity="info" sx={{ mb: 2 }}>
+                                            Vous commandez pour un proche ou avez déjà un lien Maps ? Collez le lien direct ci-dessous.
+                                        </Alert>
+                                        <TextField
+                                            fullWidth
+                                            id="locationLink"
+                                            name="locationLink"
+                                            label="Lien Google Maps (Optionnel)"
+                                            placeholder="https://maps.app.goo.gl/..."
+                                            value={values.locationLink || ''}
+                                            onChange={handleChange}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <MapIcon />
+                                                    </InputAdornment>
+                                                ),
+                                            }}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            id="address"
+                                            name="address"
+                                            label="Adresse et Quartier"
+                                            value={values.address}
+                                            onChange={handleChange}
+                                            error={touched.address && Boolean(errors.address)}
+                                            helperText={touched.address && errors.address}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <TextField
+                                            fullWidth
+                                            id="city"
+                                            name="city"
+                                            label="Ville"
+                                            value={values.city}
+                                            onChange={handleChange}
+                                            error={touched.city && Boolean(errors.city)}
+                                            helperText={touched.city && errors.city}
+                                        />
                                     </Grid>
                                 </Grid>
+                            )}
 
-                                <Grid item xs={12}>
-                                    <Button
-                                        type="submit"
-                                        variant="contained"
-                                        color="primary"
-                                        fullWidth
-                                        size="large"
-                                        disabled={loading || !formik.isValid}
-                                    >
-                                        {loading ? (
-                                            <CircularProgress size={24} color="inherit" />
-                                        ) : (
-                                            'Passer la commande'
-                                        )}
-                                    </Button>
-                                </Grid>
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    id="deliveryInstructions"
+                                    name="deliveryInstructions"
+                                    label="Complément d'adresse ou instructions (optionnel)"
+                                    placeholder="Ex: Derrière la pharmacie, portail noir..."
+                                    multiline
+                                    rows={2}
+                                    value={values.deliveryInstructions || ''}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
+
+                            <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 4 }}>
+                                3. Mode de paiement
+                            </Typography>
+                            <Divider sx={{ mb: 3 }} />
+                            
+                            <FormControl component="fieldset" margin="normal" fullWidth>
+                                <FormLabel component="legend" sx={{ fontWeight: 600, color: 'text.primary', mb: 1 }}>
+                                    Quand souhaitez-vous payer ?
+                                </FormLabel>
+                                <RadioGroup
+                                    row
+                                    name="paymentType"
+                                    value={values.paymentType}
+                                    onChange={(e) => {
+                                        handleChange(e);
+                                        setFieldValue('paymentMethod', '');
+                                    }}
+                                    sx={{ mb: 3 }}
+                                >
+                                    <Paper elevation={0} sx={{ border: values.paymentType === 'delivery' ? '2px solid #1976d2' : '1px solid #e0e0e0', p: 1, mr: 2, mb: {xs: 2, sm: 0 }, borderRadius: 2, flex: 1, display: 'flex', alignItems: 'center' }}>
+                                        <FormControlLabel 
+                                            value="delivery" 
+                                            control={<Radio />} 
+                                            label={<Box><Typography fontWeight="600">Payer à la livraison</Typography></Box>} 
+                                            sx={{ m: 0, width: '100%' }}
+                                        />
+                                    </Paper>
+                                    <Paper elevation={0} sx={{ border: values.paymentType === 'advance' ? '2px solid #1976d2' : '1px solid #e0e0e0', p: 1, borderRadius: 2, flex: 1, display: 'flex', alignItems: 'center' }}>
+                                        <FormControlLabel 
+                                            value="advance" 
+                                            control={<Radio />} 
+                                            label={<Box><Typography fontWeight="600">Payer en avance</Typography></Box>} 
+                                            sx={{ m: 0, width: '100%' }}
+                                        />
+                                    </Paper>
+                                </RadioGroup>
+                            </FormControl>
+
+                            <Typography variant="subtitle1" fontWeight="600" mb={2}>
+                                Choisissez votre moyen de paiement :
+                            </Typography>
+                            
+                            <Grid container spacing={2}>
+                                {paymentMethods.map(method => (
+                                    <Grid item xs={12} sm={6} key={method._id}>
+                                        <Paper
+                                            elevation={values.paymentMethod === method.name ? 3 : 1}
+                                            sx={{
+                                                p: 2,
+                                                cursor: 'pointer',
+                                                border: values.paymentMethod === method.name ? '2px solid #1976d2' : '1px solid #ddd',
+                                                transition: 'all 0.2s',
+                                                '&:hover': { borderColor: 'primary.main', bgcolor: '#f8fafc' },
+                                                height: '100%',
+                                                display: 'flex',
+                                                flexDirection: 'column'
+                                            }}
+                                            onClick={() => setFieldValue('paymentMethod', method.name)}
+                                        >
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                                                {method.image ? (
+                                                    <Avatar src={method.image} alt={method.name} variant="rounded" sx={{ width: 40, height: 40 }} />
+                                                ) : (
+                                                    <Avatar variant="rounded" sx={{ width: 40, height: 40, bgcolor: 'grey.200' }}>
+                                                        <PaymentIcon color="action" />
+                                                    </Avatar>
+                                                )}
+                                                <Typography fontWeight="700">{method.name}</Typography>
+                                            </Box>
+                                            {method.description && (
+                                                <Typography variant="body2" color="text.secondary">
+                                                    {method.description}
+                                                </Typography>
+                                            )}
+                                        </Paper>
+                                    </Grid>
+                                ))}
+                            </Grid>
+                            {touched.paymentMethod && errors.paymentMethod && (
+                                <Typography color="error" variant="caption" sx={{ mt: 1, display: 'block' }}>
+                                    {errors.paymentMethod}
+                                </Typography>
+                            )}
+
+                            <Grid item xs={12} sx={{ mt: 4 }}>
+                                <Button
+                                    type="submit"
+                                    variant="contained"
+                                    color="primary"
+                                    fullWidth
+                                    size="large"
+                                    disabled={loading}
+                                    sx={{ py: 2, borderRadius: 2, fontSize: '1.1rem', fontWeight: 700 }}
+                                >
+                                    {loading ? (
+                                        <CircularProgress size={24} color="inherit" />
+                                    ) : (
+                                        'Confirmer ma commande'
+                                    )}
+                                </Button>
                             </Grid>
                         </form>
                     </Paper>
@@ -349,18 +518,19 @@ const Checkout = () => {
 
                 {/* Résumé de la commande */}
                 <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 3 }}>
-                        <Typography variant="h5" gutterBottom>
+                    <Paper sx={{ p: 4, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', position: 'sticky', top: 24 }}>
+                        <Typography variant="h6" fontWeight="700" gutterBottom>
                             Résumé de la commande
                         </Typography>
-                        <List>
+                        <Divider sx={{ mb: 2 }} />
+                        <List disablePadding>
                             {cart.cart.items.map((item) => (
-                                <ListItem key={item._id} divider>
+                                <ListItem key={item._id} disableGutters sx={{ py: 1.5 }}>
                                     <ListItemText
-                                        primary={item.name}
-                                        secondary={`Quantité: ${item.quantity}`}
+                                        primary={<Typography fontWeight="600">{item.name}</Typography>}
+                                        secondary={`Qté: ${item.quantity}`}
                                     />
-                                    <Typography>
+                                    <Typography fontWeight="bold">
                                         {(item.price * item.quantity).toLocaleString()} FCFA
                                     </Typography>
                                 </ListItem>
@@ -368,17 +538,16 @@ const Checkout = () => {
                         </List>
                         <Divider sx={{ my: 2 }} />
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Sous-total</Typography>
-                            <Typography>{cart.cart.totalPrice.toLocaleString()} FCFA</Typography>
+                            <Typography color="text.secondary">Sous-total</Typography>
+                            <Typography fontWeight="500">{cart.cart.totalPrice.toLocaleString()} FCFA</Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography>Frais de livraison</Typography>
-                            <Typography>Gratuit</Typography>
-                        </Box>
-                        <Divider sx={{ my: 2 }} />
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                            <Typography variant="h6">Total</Typography>
-                            <Typography variant="h6" color="primary">
+                            <Typography color="text.secondary">Frais de livraison</Typography>
+                            <Typography color="success.main" fontWeight="600">Gratuit</Typography>
+                        </Box>
+                        <Box sx={{ bgcolor: '#f8fafc', p: 2, borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
+                            <Typography variant="h6" fontWeight="700">Total</Typography>
+                            <Typography variant="h5" color="primary.main" fontWeight="800">
                                 {cart.cart.totalPrice.toLocaleString()} FCFA
                             </Typography>
                         </Box>
@@ -389,4 +558,4 @@ const Checkout = () => {
     );
 };
 
-export default Checkout; 
+export default Checkout;

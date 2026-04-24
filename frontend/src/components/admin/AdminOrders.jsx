@@ -24,9 +24,15 @@ import {
     InputLabel,
     Select,
     MenuItem,
-    Chip
+    Chip,
+    Divider,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemAvatar,
+    Avatar
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, Visibility as VisibilityIcon, Map as MapIcon, OpenInNew as OpenInNewIcon } from '@mui/icons-material';
 import axiosInstance from '../../config/axios';
 
 const AdminOrders = () => {
@@ -320,9 +326,10 @@ const AdminOrders = () => {
                                 <TableCell>
                                     <IconButton
                                         onClick={() => handleOpenDialog(order)}
-                                        color="primary"
+                                        color="info"
+                                        title="Voir les détails"
                                     >
-                                        <EditIcon />
+                                        <VisibilityIcon />
                                     </IconButton>
                                     <IconButton
                                         onClick={() => handleDelete(order._id)}
@@ -349,65 +356,159 @@ const AdminOrders = () => {
             <Dialog
                 open={openDialog}
                 onClose={handleCloseDialog}
-                maxWidth="sm"
+                maxWidth="md"
                 fullWidth
             >
-                <DialogTitle>
-                    {selectedOrder ? 'Modifier la commande' : 'Nouvelle commande'}
+                <DialogTitle sx={{ fontWeight: 'bold' }}>
+                    Détails de la commande {selectedOrder?.orderNumber || selectedOrder?._id?.slice(-6).toUpperCase()}
                 </DialogTitle>
-                <DialogContent>
-                    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-                        <Grid container spacing={2}>
-                            <Grid item xs={12}>
-                                <FormControl fullWidth>
-                                    <InputLabel>Statut</InputLabel>
-                                    <Select
-                                        name="status"
-                                        value={formData.status}
-                                        onChange={handleChange}
-                                        label="Statut"
-                                    >
-                                        <MenuItem value="pending">En attente</MenuItem>
-                                        <MenuItem value="processing">En traitement</MenuItem>
-                                        <MenuItem value="shipped">Expédiée</MenuItem>
-                                        <MenuItem value="delivered">Livrée</MenuItem>
-                                        <MenuItem value="cancelled">Annulée</MenuItem>
-                                    </Select>
-                                </FormControl>
+                <DialogContent dividers>
+                    {selectedOrder && (
+                        <Grid container spacing={4}>
+                            {/* Colonne de gauche: Détails clients et adresse */}
+                            <Grid item xs={12} md={7}>
+                                <Typography variant="h6" gutterBottom fontWeight="600">
+                                    Informations Client & Livraison
+                                </Typography>
+                                <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+                                    <Typography variant="body1"><strong>Client:</strong> {selectedOrder.user?.name || selectedOrder.shippingAddress?.name}</Typography>
+                                    <Typography variant="body2"><strong>Email:</strong> {selectedOrder.user?.email || selectedOrder.shippingAddress?.email}</Typography>
+                                    <Typography variant="body2"><strong>Téléphone:</strong> {selectedOrder.user?.phone || selectedOrder.shippingAddress?.phone}</Typography>
+                                    
+                                    <Divider sx={{ my: 1.5 }} />
+                                    
+                                    <Typography variant="body2"><strong>Mode de remise:</strong> {selectedOrder.paymentType === 'delivery' ? 'Paiement à la livraison' : 'Paiement en avance'}</Typography>
+                                    <Typography variant="body2"><strong>Moyen:</strong> {selectedOrder.paymentMethod}</Typography>
+                                    
+                                    <Divider sx={{ my: 1.5 }} />
+                                    
+                                    <Typography variant="subtitle2" color="text.secondary">Adresse de livraison</Typography>
+                                    <Typography variant="body2">{selectedOrder.shippingAddress?.address}</Typography>
+                                    <Typography variant="body2">{selectedOrder.shippingAddress?.city}</Typography>
+                                    
+                                    {selectedOrder.shippingAddress?.locationLink && (
+                                        <Button 
+                                            variant="outlined" 
+                                            color="info" 
+                                            size="small" 
+                                            startIcon={<MapIcon />} 
+                                            endIcon={<OpenInNewIcon sx={{ fontSize: 14 }}/>}
+                                            href={selectedOrder.shippingAddress.locationLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            sx={{ mt: 1, borderRadius: 2, textTransform: 'none' }}
+                                        >
+                                            Ouvrir dans Google Maps
+                                        </Button>
+                                    )}
+                                    {selectedOrder.shippingAddress?.deliveryInstructions && (
+                                        <Box mt={1} p={1} bgcolor="#f8fafc" borderRadius={1} borderLeft="3px solid #cbd5e1">
+                                            <Typography variant="caption" fontWeight="bold">INSTRUCTIONS:</Typography>
+                                            <Typography variant="body2">{selectedOrder.shippingAddress.deliveryInstructions}</Typography>
+                                        </Box>
+                                    )}
+                                </Paper>
+
+                                <Typography variant="h6" gutterBottom fontWeight="600">
+                                    Contenu de la commande
+                                </Typography>
+                                <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                                    <List disablePadding>
+                                        {selectedOrder.items?.map((item, index) => (
+                                            <React.Fragment key={item._id || index}>
+                                                <ListItem>
+                                                    <ListItemAvatar>
+                                                        <Avatar src={item.image} variant="rounded" sx={{ width: 50, height: 50 }} />
+                                                    </ListItemAvatar>
+                                                    <ListItemText 
+                                                        primary={<Typography fontWeight="500">{item.name}</Typography>} 
+                                                        secondary={`Quantité: ${item.quantity}`} 
+                                                        sx={{ ml: 2 }}
+                                                    />
+                                                    <Typography fontWeight="bold">
+                                                        {(item.price * item.quantity).toLocaleString()} FCFA
+                                                    </Typography>
+                                                </ListItem>
+                                                {index < selectedOrder.items.length - 1 && <Divider />}
+                                            </React.Fragment>
+                                        ))}
+                                    </List>
+                                    <Box sx={{ p: 2, bgcolor: '#f8fafc', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0' }}>
+                                        <Typography variant="h6">Total</Typography>
+                                        <Typography variant="h6" color="primary" fontWeight="bold">
+                                            {(selectedOrder.totalAmount || selectedOrder.total || selectedOrder.amount || 0).toLocaleString()} FCFA
+                                        </Typography>
+                                    </Box>
+                                </Paper>
                             </Grid>
-                            <Grid item xs={12}>
-                                <TextField
-                                    fullWidth
-                                    label="Numéro de suivi"
-                                    name="trackingNumber"
-                                    value={formData.trackingNumber}
-                                    onChange={handleChange}
-                                />
-                            </Grid>
-                            <Grid item xs={12}>
-                                <TextField
-                                    fullWidth
-                                    multiline
-                                    rows={4}
-                                    label="Notes"
-                                    name="notes"
-                                    value={formData.notes}
-                                    onChange={handleChange}
-                                />
+
+                            {/* Colonne de droite: Mise à jour du statut */}
+                            <Grid item xs={12} md={5}>
+                                <Typography variant="h6" gutterBottom fontWeight="600">
+                                    Gérer la commande
+                                </Typography>
+                                <Box component="form" onSubmit={handleSubmit}>
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={12}>
+                                            <FormControl fullWidth>
+                                                <InputLabel>Statut</InputLabel>
+                                                <Select
+                                                    name="status"
+                                                    value={formData.status}
+                                                    onChange={handleChange}
+                                                    label="Statut"
+                                                >
+                                                    <MenuItem value="pending">En attente</MenuItem>
+                                                    <MenuItem value="processing">En traitement</MenuItem>
+                                                    <MenuItem value="shipped">Expédiée</MenuItem>
+                                                    <MenuItem value="delivered">Livrée</MenuItem>
+                                                    <MenuItem value="cancelled">Annulée</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </Grid>
+                                        <Grid item xs={12}>
+                                            <TextField
+                                                fullWidth
+                                                label="Numéro de suivi (Optionnel)"
+                                                name="trackingNumber"
+                                                value={formData.trackingNumber}
+                                                onChange={handleChange}
+                                                placeholder="Ex: DHL-123456"
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12}>
+                                            <TextField
+                                                fullWidth
+                                                multiline
+                                                rows={4}
+                                                label="Notes internes (Optionnel)"
+                                                name="notes"
+                                                value={formData.notes}
+                                                onChange={handleChange}
+                                                placeholder="Notes invisibles pour le client..."
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12}>
+                                            <Button
+                                                type="submit"
+                                                variant="contained"
+                                                fullWidth
+                                                size="large"
+                                                disabled={loading}
+                                                sx={{ mt: 1, py: 1.5, borderRadius: 2 }}
+                                            >
+                                                Mettre à jour le statut
+                                            </Button>
+                                        </Grid>
+                                    </Grid>
+                                </Box>
                             </Grid>
                         </Grid>
-                    </Box>
+                    )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseDialog}>
-                        Annuler
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleSubmit}
-                        disabled={loading}
-                    >
-                        Enregistrer
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={handleCloseDialog} color="inherit">
+                        Fermer
                     </Button>
                 </DialogActions>
             </Dialog>

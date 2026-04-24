@@ -21,7 +21,7 @@ exports.protect = async (req, res, next) => {
 
         try {
             // Vérifier le token
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre_secret_jwt_par_defaut');
             console.log('Auth - Token décodé:', decoded);
 
             // Récupérer l'utilisateur

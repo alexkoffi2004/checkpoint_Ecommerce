@@ -226,8 +226,8 @@ exports.deleteOrder = async (req, res) => {
 // @access  Private
 exports.createOrder = async (req, res) => {
     try {
-        const { shippingAddress, paymentMethod, items, totalAmount } = req.body;
-        console.log('Données reçues:', { shippingAddress, paymentMethod, items, totalAmount });
+        const { shippingAddress, paymentMethod, paymentType, items, totalAmount } = req.body;
+        console.log('Données reçues:', { shippingAddress, paymentMethod, paymentType, items, totalAmount });
 
         // Vérifier si les données requises sont présentes
         if (!shippingAddress || !paymentMethod || !items || !totalAmount) {
@@ -259,6 +259,7 @@ exports.createOrder = async (req, res) => {
             totalAmount,
             shippingAddress,
             paymentMethod,
+            paymentType: paymentType || 'delivery',
             status: 'pending'
         };
 
